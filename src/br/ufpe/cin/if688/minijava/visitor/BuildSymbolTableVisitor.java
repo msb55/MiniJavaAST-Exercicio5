@@ -52,6 +52,7 @@ public class BuildSymbolTableVisitor implements IVisitor<Void> {
 
 	private Class currClass;
 	private Method currMethod;
+	private boolean inClass; // true = classe; false = metodo
 
 	// MainClass m;
 	// ClassDeclList cl;
@@ -66,6 +67,10 @@ public class BuildSymbolTableVisitor implements IVisitor<Void> {
 	// Identifier i1,i2;
 	// Statement s;
 	public Void visit(MainClass n) {
+		if(!symbolTable.containsClass(n.i1.s)) symbolTable.addClass(n.i1.s, null);
+		else throw new RuntimeException("Classe já existente");
+		currClass = symbolTable.getClass(n.i1.s);
+		
 		n.i1.accept(this);
 		n.i2.accept(this);
 		n.s.accept(this);
@@ -76,10 +81,18 @@ public class BuildSymbolTableVisitor implements IVisitor<Void> {
 	// VarDeclList vl;
 	// MethodDeclList ml;
 	public Void visit(ClassDeclSimple n) {
+		if(!symbolTable.containsClass(n.i.s)) symbolTable.addClass(n.i.s, null);
+		else throw new RuntimeException("Classe já existente");
+		currClass = symbolTable.getClass(n.i.s);
+		
 		n.i.accept(this);
+		
+		inClass = true;
 		for (int i = 0; i < n.vl.size(); i++) {
 			n.vl.elementAt(i).accept(this);
 		}
+		
+		inClass = false;
 		for (int i = 0; i < n.ml.size(); i++) {
 			n.ml.elementAt(i).accept(this);
 		}
@@ -91,11 +104,19 @@ public class BuildSymbolTableVisitor implements IVisitor<Void> {
 	// VarDeclList vl;
 	// MethodDeclList ml;
 	public Void visit(ClassDeclExtends n) {
+		if(!symbolTable.containsClass(n.i.s)) symbolTable.addClass(n.i.s, n.j.s);
+		else throw new RuntimeException("Classe já existente");
+		currClass = symbolTable.getClass(n.i.s);
+		
 		n.i.accept(this);
 		n.j.accept(this);
+		
+		inClass = true;
 		for (int i = 0; i < n.vl.size(); i++) {
 			n.vl.elementAt(i).accept(this);
 		}
+		
+		inClass = false;
 		for (int i = 0; i < n.ml.size(); i++) {
 			n.ml.elementAt(i).accept(this);
 		}
@@ -105,6 +126,15 @@ public class BuildSymbolTableVisitor implements IVisitor<Void> {
 	// Type t;
 	// Identifier i;
 	public Void visit(VarDecl n) {
+		if(inClass) {
+			if(!currClass.containsVar(n.i.s)) currClass.addVar(n.i.s, n.t);
+			else throw new RuntimeException("Variavel "+ n.i.s +" já existente na classe " + currClass.getId());
+		}
+		else {
+			if(!currMethod.containsVar(n.i.s)) currMethod.addVar(n.i.s, n.t);
+			else throw new RuntimeException("Variavel "+ n.i.s +" já existente no método " + currMethod.getId());
+		}
+		
 		n.t.accept(this);
 		n.i.accept(this);
 		return null;
@@ -117,6 +147,10 @@ public class BuildSymbolTableVisitor implements IVisitor<Void> {
 	// StatementList sl;
 	// Exp e;
 	public Void visit(MethodDecl n) {
+		if(!currClass.containsMethod(n.i.s)) currClass.addMethod(n.i.s, n.t);
+		else throw new RuntimeException("Método" + n.i.s + " já existente na classe " + currClass.getId());
+		currMethod = currClass.getMethod(n.i.s);
+		
 		n.t.accept(this);
 		n.i.accept(this);
 		for (int i = 0; i < n.fl.size(); i++) {
@@ -135,6 +169,9 @@ public class BuildSymbolTableVisitor implements IVisitor<Void> {
 	// Type t;
 	// Identifier i;
 	public Void visit(Formal n) {
+		if(!currMethod.containsParam(n.i.s)) currMethod.addParam(n.i.s, n.t);
+		else throw new RuntimeException("Paramêtro "+ n.i.s +" já existente no método " + currMethod.getId());
+		
 		n.t.accept(this);
 		n.i.accept(this);
 		return null;
